@@ -1,0 +1,57 @@
+version: '2'
+
+services:
+  elasticsearch:
+    image: elasticsearch:2.4
+    environment: 
+      - 'ES_JAVA_OPTS=-Xms256m -Xmx256m'
+      - 'discovery.zen.ping.unicast.hosts=elasticsearch'
+      - 'node.name=master-$${HOSTNAME}'
+      - 'node.master=true'
+      - 'node.data=false'
+      - 'node.ingest=false'
+      - 'es.cluster.name=graylog'
+    volumes: 
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks: [cluster]
+    mem_limit: 512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+  # # Cerebro Elasticsearch client
+  # cerebro:
+  #   depends_on: [elasticsearch]
+  #   image: yannart/cerebro:latest
+  #   ports:
+  #     - "9000:9700"
+  #   networks:
+  #     - cluster
+
+  mongo:
+    image: mongo:2
+    networks:
+      - cluster
+
+  # Cerebro Elasticsearch client
+  graylog:
+    depends_on: [elasticsearch,mongo]
+    image: graylog2/server:2.2.3-1
+    environment:
+      GRAYLOG_WEB_ENDPOINT_URI: http://127.0.0.1:9000/api
+    volumes:
+      - ./graylog/graylog.conf:/usr/share/graylog/data/config/graylog.conf
+      - ./graylog/plugin:/usr/share/graylog-server/plugin
+      # - ${jar-location}:/usr/share/graylog-server/plugin/${jar-name}
+    ports:
+      - "9000:9000"
+    networks:
+      - cluster
+
+networks:
+  cluster:
+    driver: bridge
